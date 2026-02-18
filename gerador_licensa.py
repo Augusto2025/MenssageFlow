@@ -33,7 +33,7 @@ f.pack(pady=10, padx=20, fill="x")
 entry_hwid = ctk.CTkEntry(f, placeholder_text="Cole aqui o HWID do cliente")
 entry_hwid.pack(side="left", fill="x", expand=True, padx=5, pady=10)
 
-ctk.CTkButton(app, text="Capturar Meu HWID (Para Teste)", command=capturar_hwid_local, fg_color="#6C757D").pack(pady=5)
+ctk.CTkButton(app, text="Capturar Meu HWID", command=capturar_hwid_local, fg_color="#6C757D").pack(pady=5)
 ctk.CTkButton(app, text="Gerar Licença (config.json)", command=gerar_arquivo, fg_color="#28A745").pack(pady=10)
 
 app.mainloop()
