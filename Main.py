@@ -1,13 +1,20 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import pandas as pd
-import os, webbrowser, time, pyautogui, pyperclip, threading, json, subprocess
+import os, webbrowser, time, pyautogui, pyperclip, threading, json, subprocess, sys
+
+# --- FUNÇÃO PARA RECURSOS NO EXE (ÍCONE) ---
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # --- CONFIGURAÇÕES GLOBAIS ---
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
-# Variáveis de estado
 excel_data = None
 excel_nome = "Nenhum"
 image_path = None
@@ -15,7 +22,7 @@ image_nome = "Nenhuma"
 tempo_carregamento = 15 
 tempo_intervalo = 30
 arquivo_config = "config.json"
-caminho_icone = os.path.join("img", "MenssageFlow_icone.ico")
+caminho_icone = resource_path(os.path.join("img", "MenssageFlow_icone.ico"))
 
 # --- FUNÇÕES DE SISTEMA ---
 def obter_hwid():
@@ -27,7 +34,7 @@ def obter_hwid():
 def validar_acesso():
     hwid_atual = obter_hwid()
     if not os.path.exists(arquivo_config):
-        messagebox.showerror("Erro", "Arquivo 'config.json' não encontrado!")
+        messagebox.showerror("Erro de Licença", "Arquivo 'config.json' não encontrado!")
         return False
     try:
         with open(arquivo_config, 'r') as f:
@@ -44,29 +51,29 @@ def limpar_area_transferencia():
 # --- FUNÇÕES DA INTERFACE ---
 def carregar_excel():
     global excel_data, excel_nome
-    file = filedialog.askopenfilename()
+    file = filedialog.askopenfilename(filetypes=[("Arquivos de Excel", "*.xlsx *.csv")])
     if file: 
-        excel_data = pd.read_excel(file) if file.endswith('.xlsx') else pd.read_csv(file)
-        excel_nome = os.path.basename(file)
-        atualizar_status()
+        try:
+            excel_data = pd.read_excel(file) if file.endswith('.xlsx') else pd.read_csv(file)
+            excel_nome = os.path.basename(file)
+            atualizar_status()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível ler o arquivo: {e}")
 
 def limpar_excel():
     global excel_data, excel_nome
-    excel_data = None; excel_nome = "Nenhum"
-    atualizar_status()
+    excel_data = None; excel_nome = "Nenhum"; atualizar_status()
 
 def carregar_imagem():
     global image_path, image_nome
     file = filedialog.askopenfilename()
     if file: 
         image_path = os.path.abspath(file)
-        image_nome = os.path.basename(file)
-        atualizar_status()
+        image_nome = os.path.basename(file); atualizar_status()
 
 def limpar_imagem():
     global image_path, image_nome
-    image_path = None; image_nome = "Nenhuma"
-    atualizar_status()
+    image_path = None; image_nome = "Nenhuma"; atualizar_status()
 
 def atualizar_status():
     status = f"Excel: {excel_nome}\nImagem: {image_nome}"
@@ -89,32 +96,55 @@ def processo_envio(msg):
 
     for i, row in excel_data.iterrows():
         limpar_area_transferencia()
-        p_nome = str(row['nome']).strip().split()[0] if str(row['nome']) and str(row['nome']) != "nan" else "Cliente"
+        
+        # Formata número e nome
         n_limpo = ''.join(filter(str.isdigit, str(row['numero'])))
+        p_nome = str(row['nome']).strip().split()[0] if str(row['nome']) != "nan" else "Cliente"
         mensagem_final = f"Olá {p_nome}! \n{msg}" if msg.strip() else ""
 
-        webbrowser.open(f"https://web.whatsapp.com/send?phone={n_limpo}")
+        # Abre o link e espera carregar
+        link = f"https://web.whatsapp.com/send?phone={n_limpo}"
+        webbrowser.open(link)
         time.sleep(tempo_carregamento)
+
+        # GARANTIR FOCO: Alt + Tab para trazer o navegador para frente
+        pyautogui.hotkey('alt', 'tab')
+        time.sleep(1)
+        
+        # Clique central para garantir foco no campo de texto
         pyautogui.click(largura/2, altura/2)
         time.sleep(1)
 
+        # Fluxo Imagem
         if image_path and os.path.exists(image_path):
             ps_command = f'Set-Clipboard -Path "{image_path}"'
             subprocess.run(['powershell', '-Command', ps_command], shell=True)
             time.sleep(1.5)
             pyautogui.hotkey('ctrl', 'v')
-            time.sleep(3) 
+            time.sleep(4) # Espera o editor de legenda abrir
+            
             if mensagem_final:
                 pyperclip.copy(mensagem_final)
-                time.sleep(0.5); pyautogui.hotkey('ctrl', 'v'); time.sleep(1)
+                time.sleep(0.5)
+                pyautogui.hotkey('ctrl', 'v')
+                time.sleep(1)
+            
             pyautogui.press('enter')
+
+        # Fluxo Só Texto
         elif mensagem_final:
             pyperclip.copy(mensagem_final)
-            time.sleep(0.5); pyautogui.hotkey('ctrl', 'v'); time.sleep(1); pyautogui.press('enter')
+            time.sleep(1)
+            pyautogui.hotkey('ctrl', 'v')
+            time.sleep(1)
+            pyautogui.press('enter')
 
-        time.sleep(3); pyautogui.hotkey('ctrl', 'w')
+        time.sleep(3) 
+        pyautogui.hotkey('ctrl', 'w') # Fecha a aba
+        
         progress_bar.set((i + 1) / total)
         time.sleep(tempo_intervalo)
+        
     messagebox.showinfo("Fim", "Processo concluído!")
 
 def iniciar_envio():
@@ -122,14 +152,13 @@ def iniciar_envio():
     msg = message_text.get("1.0", "end-1c")
     threading.Thread(target=processo_envio, args=(msg,), daemon=True).start()
 
-# --- CONSTRUÇÃO DA UI ---
+# --- INTERFACE ---
 if validar_acesso():
     root = ctk.CTk()
     root.title("MessageFlow")
     root.geometry("480x650")
     root.resizable(False, False)
     
-    # Adicionando o ícone na janela principal
     if os.path.exists(caminho_icone):
         root.iconbitmap(caminho_icone)
 
