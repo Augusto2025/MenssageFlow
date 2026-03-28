@@ -24,6 +24,9 @@ tempo_intervalo = 30
 arquivo_config = "config.json"
 caminho_icone = resource_path(os.path.join("img", "MenssageFlow_icone.ico"))
 
+# Variável para armazenar os detalhes das falhas
+lista_erros = []
+
 # --- FUNÇÕES DE SISTEMA ---
 def obter_hwid():
     try:
@@ -89,63 +92,81 @@ def mudar_tempo_intervalo(v):
     tempo_intervalo = int(v)
     lbl_intervalo.configure(text=f"Intervalo entre contatos: {tempo_intervalo}s")
 
+# Janela de detalhes dos erros
+def mostrar_detalhes_erros():
+    janela_erro = ctk.CTkToplevel()
+    janela_erro.title("Relatório de Falhas")
+    janela_erro.geometry("400x350")
+    janela_erro.attributes("-topmost", True)
+    
+    txt = ctk.CTkTextbox(janela_erro, width=380, height=300)
+    txt.pack(padx=10, pady=10)
+    
+    relatorio = "CONTATOS QUE FALHARAM:\n" + "="*30 + "\n"
+    for erro in lista_erros:
+        relatorio += f"Nome: {erro['nome']} | Número: {erro['numero']}\n"
+    
+    txt.insert("0.0", relatorio)
+    txt.configure(state="disabled")
+
 # --- LÓGICA DE ENVIO ---
 def processo_envio(msg):
+    global lista_erros
+    lista_erros = [] # Limpa a lista para o novo envio
+    sucessos = 0
+    falhas = 0
     total = len(excel_data)
     largura, altura = pyautogui.size() 
 
     for i, row in excel_data.iterrows():
-        limpar_area_transferencia()
-        
-        # Formata número e nome
-        n_limpo = ''.join(filter(str.isdigit, str(row['numero'])))
-        p_nome = str(row['nome']).strip().split()[0] if str(row['nome']) != "nan" else "Cliente"
-        mensagem_final = f"Olá {p_nome}! \n{msg}" if msg.strip() else ""
+        # Captura os dados antes de tentar enviar para usar no log de erro se precisar
+        nome_atual = str(row['nome']) if str(row['nome']) != "nan" else "Cliente"
+        numero_atual = str(row['numero'])
 
-        # Abre o link e espera carregar
-        link = f"https://web.whatsapp.com/send?phone={n_limpo}"
-        webbrowser.open(link)
-        time.sleep(tempo_carregamento)
+        try:
+            limpar_area_transferencia()
+            n_limpo = ''.join(filter(str.isdigit, numero_atual))
+            p_nome = nome_atual.strip().split()[0]
+            mensagem_final = f"Olá {p_nome}! \n{msg}" if msg.strip() else ""
 
-        # GARANTIR FOCO: Alt + Tab para trazer o navegador para frente
-        pyautogui.hotkey('alt', 'tab')
-        time.sleep(1)
-        
-        # Clique central para garantir foco no campo de texto
-        pyautogui.click(largura/2, altura/2)
-        time.sleep(1)
+            webbrowser.open(f"https://web.whatsapp.com/send?phone={n_limpo}")
+            time.sleep(tempo_carregamento)
 
-        # Fluxo Imagem
-        if image_path and os.path.exists(image_path):
-            ps_command = f'Set-Clipboard -Path "{image_path}"'
-            subprocess.run(['powershell', '-Command', ps_command], shell=True)
-            time.sleep(1.5)
-            pyautogui.hotkey('ctrl', 'v')
-            time.sleep(4) # Espera o editor de legenda abrir
-            
-            if mensagem_final:
-                pyperclip.copy(mensagem_final)
-                time.sleep(0.5)
+            pyautogui.hotkey('alt', 'tab')
+            time.sleep(1)
+            pyautogui.click(largura/2, altura/2)
+            time.sleep(1)
+
+            if image_path and os.path.exists(image_path):
+                ps_command = f'Set-Clipboard -Path "{image_path}"'
+                subprocess.run(['powershell', '-Command', ps_command], shell=True)
+                time.sleep(1.5)
                 pyautogui.hotkey('ctrl', 'v')
-                time.sleep(1)
-            
-            pyautogui.press('enter')
+                time.sleep(4) 
+                if mensagem_final:
+                    pyperclip.copy(mensagem_final)
+                    time.sleep(0.5); pyautogui.hotkey('ctrl', 'v'); time.sleep(1)
+                pyautogui.press('enter')
+            elif mensagem_final:
+                pyperclip.copy(mensagem_final)
+                time.sleep(1); pyautogui.hotkey('ctrl', 'v'); time.sleep(1); pyautogui.press('enter')
 
-        # Fluxo Só Texto
-        elif mensagem_final:
-            pyperclip.copy(mensagem_final)
-            time.sleep(1)
-            pyautogui.hotkey('ctrl', 'v')
-            time.sleep(1)
-            pyautogui.press('enter')
-
-        time.sleep(3) 
-        pyautogui.hotkey('ctrl', 'w') # Fecha a aba
+            time.sleep(3); pyautogui.hotkey('ctrl', 'w')
+            sucessos += 1
+        except Exception:
+            falhas += 1
+            lista_erros.append({"nome": nome_atual, "numero": numero_atual})
         
         progress_bar.set((i + 1) / total)
         time.sleep(tempo_intervalo)
         
-    messagebox.showinfo("Fim", "Processo concluído!")
+    # Mensagem final detalhada
+    resultado_texto = f"Processo Finalizado!\n\n✅ Sucessos: {sucessos}\n❌ Falhas: {falhas}"
+    messagebox.showinfo("Relatório MessageFlow", resultado_texto)
+    
+    if falhas > 0:
+        if messagebox.askyesno("Ver Detalhes", "Deseja ver a lista de quem não recebeu a mensagem?"):
+            mostrar_detalhes_erros()
 
 def iniciar_envio():
     if excel_data is None: return messagebox.showerror("Erro", "Selecione o Excel!")
@@ -158,9 +179,7 @@ if validar_acesso():
     root.title("MessageFlow")
     root.geometry("480x650")
     root.resizable(False, False)
-    
-    if os.path.exists(caminho_icone):
-        root.iconbitmap(caminho_icone)
+    if os.path.exists(caminho_icone): root.iconbitmap(caminho_icone)
 
     main_frame = ctk.CTkScrollableFrame(root, fg_color="#F0F0F0", height=630, width=450)
     main_frame.pack(fill="both", expand=True, padx=15, pady=10)
