@@ -1,13 +1,13 @@
 {
   "expo": {
     "name": "MenssageFlow",
-    "slug": "MenssageFlow", 
+    "slug": "MenssageFlow",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "owner": "augusto25",
     "extra": {
       "eas": {
-        "projectId": "59c48f74-bfd3-4cfa-8efc-64b5fa5c540b"
+        "projectId": "d9057851-e892-40a9-a3c7-fb7f0bf80299"
       }
     },
     "android": {
