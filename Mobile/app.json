@@ -1,37 +1,18 @@
 {
   "expo": {
-    "name": "Simulador Saldo Zero",
-    "slug": "simulador-saldo-zero",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.augusto25.simulador" 
-    },
-    "android": {
-      "package": "com.augusto25.simulador",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "name": "S",
+    "slug": "deafultsdk-54", 
+    "owner": "augusto25",
     "extra": {
       "eas": {
         "projectId": "59c48f74-bfd3-4cfa-8efc-64b5fa5c540b"
       }
     },
-    "owner": "augusto25"
+    "android": {
+      "package": "com.augusto25.p"
+    },
+    "ios": {
+      "bundleIdentifier": "com.augusto25.p"
+    }
   }
 }
