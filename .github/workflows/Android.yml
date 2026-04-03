@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Mobile Apps
 on:
   push:
     branches: [ main ]
@@ -6,7 +6,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # ESSA LINHA ABAIXO DIZ QUE TUDO ACONTECE DENTRO DA PASTA Mobile
     defaults:
       run:
         working-directory: ./Mobile
@@ -20,7 +19,6 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          # PRECISAMOS DIZER ONDE ESTÁ O LOCK FILE PARA O CACHE FUNCIONAR
           cache-dependency-path: ./Mobile/package-lock.json
 
       - name: 📦 Install dependencies
@@ -34,7 +32,13 @@ jobs:
           token: ${{ secrets.token_chat }}
 
       - name: 📱 Build APK (Android)
-        run: eas build --platform android --profile preview --non-interactive
+        # O segredo precisa ser injetado aqui para o comando EAS ler
+        env:
+          EXPO_TOKEN: ${{ secrets.token_chat }}
+        run: eas build --platform android --profile preview --non-interactive --no-wait
 
       - name: 🍎 Build iOS
-        run: eas build --platform ios --profile preview --non-interactive
+        # E aqui também para a build de iOS
+        env:
+          EXPO_TOKEN: ${{ secrets.token_chat }}
+        run: eas build --platform ios --profile preview --non-interactive --no-wait
