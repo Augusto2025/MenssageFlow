@@ -4,6 +4,7 @@
     "slug": "MenssageFlow",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
     "owner": "guts26",
     "extra": {
       "eas": {
@@ -12,7 +13,10 @@
     },
     "android": {
       "package": "com.guts26.menssageflow",
-      "jsEngine": "hermes"
+      "jsEngine": "hermes",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png"
+      }
     },
     "plugins": [
       [
