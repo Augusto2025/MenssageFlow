@@ -14,11 +14,12 @@ export default function App() {
   const [excelDados, setExcelDados] = useState([]);
   const [imageNome, setImageNome] = useState("Nenhuma");
   const [mensagem, setMensagem] = useState("");
-  const [tempoCarregamento, setTempoCarregamento] = useState(15);
-  const [tempoIntervalo, setTempoIntervalo] = useState(30);
+  const [tempoCarregamento, setTempoCarregamento] = useState(5);
+  const [tempoIntervalo, setTempoIntervalo] = useState(18); // Mínimo solicitado
   
   const [enviando, setEnviando] = useState(false);
   const [indiceAtual, setIndiceAtual] = useState(0);
+  const [segundosRestantes, setSegundosRestantes] = useState(0);
 
   const formatarNumero = (num) => {
     let limpo = String(num).replace(/\D/g, '');
@@ -57,13 +58,13 @@ export default function App() {
       const result = await DocumentPicker.getDocumentAsync({ type: "image/*" });
       if (!result.canceled && result.assets) {
         setImageNome(result.assets[0].name);
+        Alert.alert("Aviso", "A imagem selecionada serve como lembrete. O WhatsApp Web/App por link direto (URL) não permite anexar arquivos automaticamente por segurança.");
       }
     } catch (e) {
       Alert.alert("Erro", "Erro ao carregar imagem.");
     }
   };
 
-  // --- FUNÇÃO DE ENVIO ATUALIZADA COM TIMERS ---
   const processarEnvio = async () => {
     if (excelDados.length === 0) return Alert.alert("Erro", "Carregue o Excel!");
     if (!mensagem) return Alert.alert("Erro", "Digite uma mensagem!");
@@ -80,28 +81,32 @@ export default function App() {
         const pNome = String(nomeOriginal).trim().split(' ')[0];
         const nLimpo = formatarNumero(numeroOriginal);
         const msgFinal = `Olá ${pNome}!\n${mensagem}`;
+        
+        // Link padrão WhatsApp
         const url = `whatsapp://send?phone=${nLimpo}&text=${encodeURIComponent(msgFinal)}`;
 
-        // 1. Aguarda o "Tempo de Carregamento" antes de abrir o próximo contato
-        await sleep(tempoCarregamento * 1000); 
-
-        // 2. Abre o WhatsApp com a mensagem pronta
+        // 1. Abre o WhatsApp
         const supported = await Linking.canOpenURL(url);
         if (supported) {
           await Linking.openURL(url);
         } else {
-          Alert.alert("Erro", "Não foi possível abrir o WhatsApp");
+          Alert.alert("Erro", "WhatsApp não encontrado");
           break;
         }
 
-        // 3. Aguarda o "Tempo de Intervalo" antes de prosseguir no loop
-        // Esse é o tempo para você clicar em enviar e voltar para o app manualmente
-        await sleep(tempoIntervalo * 1000);
+        // 2. CONTAGEM REGRESSIVA (Tempo para o Auto Clicker agir)
+        // DICA: Configure o Auto Clicker para clicar e use o gesto de VOLTAR do Android
+        for (let s = tempoIntervalo; s > 0; s--) {
+          setSegundosRestantes(s);
+          await sleep(1000);
+          if (!enviando) break; 
+        }
       }
     }
 
     setEnviando(false);
     setIndiceAtual(0);
+    setSegundosRestantes(0);
     Alert.alert("Finalizado", "Processo concluído!");
   };
 
@@ -112,24 +117,20 @@ export default function App() {
         
         <Text style={styles.title}>MessageFlow</Text>
 
-        <TouchableOpacity style={styles.btnBlue} onPress={() => Linking.openURL('whatsapp://')}>
-          <Text style={styles.btnTextBold}>1. Abrir WhatsApp</Text>
-        </TouchableOpacity>
-
         {/* Bloco de Excel */}
         <View style={styles.row}>
           <TouchableOpacity style={[styles.btnGray, { flex: 1 }]} onPress={carregarExcel}>
-            <Text style={styles.btnText}>2. Selecionar Excel</Text>
+            <Text style={styles.btnText}>📁 Selecionar Excel</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.btnRed} onPress={() => {setExcelNome("Nenhum"); setExcelDados([]);}}>
             <Text style={styles.btnText}>Limpar</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Bloco de Imagem */}
+        {/* Bloco de Imagem (Restaurado) */}
         <View style={styles.row}>
           <TouchableOpacity style={[styles.btnGray, { flex: 1 }]} onPress={carregarImagem}>
-            <Text style={styles.btnText}>3. Selecionar Imagem</Text>
+            <Text style={styles.btnText}>🖼️ Selecionar Imagem</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.btnRed} onPress={() => setImageNome("Nenhuma")}>
             <Text style={styles.btnText}>Limpar</Text>
@@ -138,13 +139,16 @@ export default function App() {
 
         <View style={styles.infoBox}>
           <Text style={[styles.infoText, { color: excelDados.length > 0 ? '#03DAC6' : '#888' }]}>
-            📁 Excel: {excelNome} {excelDados.length > 0 ? `(${excelDados.length} nomes)` : ''}
+            📊 Lista: {excelNome} ({excelDados.length} contatos)
           </Text>
           <Text style={[styles.infoText, { color: imageNome !== "Nenhuma" ? '#BB86FC' : '#888' }]}>
-            🖼️ Imagem: {imageNome}
+            📷 Anexo: {imageNome}
           </Text>
           {enviando && (
-            <Text style={styles.statusEnviando}>Processando {indiceAtual} de {excelDados.length}...</Text>
+            <View style={styles.timerContainer}>
+              <Text style={styles.statusEnviando}>Enviando {indiceAtual} de {excelDados.length}</Text>
+              <Text style={styles.contador}>Próximo em: {segundosRestantes}s</Text>
+            </View>
           )}
         </View>
 
@@ -157,29 +161,22 @@ export default function App() {
           onChangeText={setMensagem}
         />
 
-        <Text style={styles.label}>Espera de carregamento: {tempoCarregamento}s</Text>
+        <Text style={[styles.label, { color: '#03DAC6' }]}>
+          Intervalo de Segurança (Min 18s): {tempoIntervalo}s
+        </Text>
         <Slider
           style={styles.slider}
-          minimumValue={1} maximumValue={60} step={1}
-          value={tempoCarregamento} onValueChange={v => setTempoCarregamento(Math.floor(v))}
-          minimumTrackTintColor="#BB86FC" thumbTintColor="#BB86FC"
-        />
-
-        <Text style={[styles.label, { color: '#03DAC6' }]}>Intervalo entre contatos: {tempoIntervalo}s</Text>
-        <Slider
-          style={styles.slider}
-          minimumValue={5} maximumValue={120} step={1}
+          minimumValue={18} maximumValue={120} step={1}
           value={tempoIntervalo} onValueChange={v => setTempoIntervalo(Math.floor(v))}
           minimumTrackTintColor="#03DAC6" thumbTintColor="#03DAC6"
         />
 
         <TouchableOpacity 
-          style={[styles.btnGreen, enviando && { opacity: 0.5 }]} 
-          onPress={processarEnvio}
-          disabled={enviando}
+          style={[styles.btnGreen, enviando && { backgroundColor: '#CF6679' }]} 
+          onPress={() => (enviando ? setEnviando(false) : processarEnvio())}
         >
           <Text style={styles.btnTextBold}>
-            {enviando ? "PROCESSANDO..." : "▶️ INICIAR ENVIO"}
+            {enviando ? "⏹️ PARAR ENVIO" : "▶️ INICIAR AUTOMAÇÃO"}
           </Text>
         </TouchableOpacity>
 
@@ -192,7 +189,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   scroll: { padding: 20, paddingTop: 60 },
   title: { fontSize: 28, fontWeight: 'bold', color: '#BB86FC', textAlign: 'center', marginBottom: 25 },
-  btnBlue: { backgroundColor: '#3700B3', padding: 18, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
   row: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   btnGray: { backgroundColor: '#1A1A1A', padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
   btnRed: { backgroundColor: '#CF6679', padding: 14, borderRadius: 12, width: 80, alignItems: 'center' },
@@ -201,7 +197,9 @@ const styles = StyleSheet.create({
   btnTextBold: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   infoBox: { padding: 15, backgroundColor: '#0A0A0A', borderRadius: 10, marginVertical: 10, borderWidth: 1, borderColor: '#222' },
   infoText: { fontSize: 13, marginBottom: 5, color: '#FFF' },
-  statusEnviando: { color: '#BB86FC', fontWeight: 'bold', marginTop: 10 },
+  timerContainer: { marginTop: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#333', paddingTop: 10 },
+  statusEnviando: { color: '#BB86FC', fontWeight: 'bold' },
+  contador: { color: '#03DAC6', fontSize: 18, fontWeight: 'bold' },
   input: { backgroundColor: '#0A0A0A', borderWidth: 1, borderColor: '#333', borderRadius: 12, padding: 15, height: 120, textAlignVertical: 'top', color: '#FFF', fontSize: 16 },
   label: { fontSize: 12, fontWeight: 'bold', color: '#BB86FC', marginTop: 15 },
   slider: { width: '100%', height: 40 }

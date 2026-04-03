@@ -4,14 +4,14 @@
     "slug": "MenssageFlow",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "owner": "augusto25",
+    "owner": "guts26",
     "extra": {
       "eas": {
-        "projectId": "d9057851-e892-40a9-a3c7-fb7f0bf80299"
+        "projectId": "24b99eb6-7fd0-47ac-8aab-056efb39bc5b"
       }
     },
     "android": {
-      "package": "com.augusto25.menssageflow",
+      "package": "com.guts26.menssageflow",
       "jsEngine": "hermes"
     },
     "plugins": [
@@ -26,7 +26,7 @@
       ]
     ],
     "ios": {
-      "bundleIdentifier": "com.augusto25.menssageflow"
+      "bundleIdentifier": "com.guts26.menssageflow"
     }
   }
 }

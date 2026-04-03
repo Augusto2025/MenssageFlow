@@ -33,6 +33,3 @@ jobs:
 
       - name: 📱 Build APK
         run: eas build --platform android --profile preview --non-interactive --clear-cache
-
-      - name: 🍎 Build iOS
-        run: eas build --platform ios --profile preview --non-interactive --clear-cache
