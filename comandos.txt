@@ -1,1 +1,1 @@
-pyinstaller --noconsole --onefile --add-data "img;img" --icon=img/MenssageFlow_icone.ico main.py
+pyinstaller --noconsole --onefile --add-data "img;img" --name "MenssageFlow" --icon=img/MenssageFlow_icone.ico main.py
