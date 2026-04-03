@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "deafult@sdk-54",
-    "slug": "deafultsdk-54",
+    "name": "Simulador Saldo Zero",
+    "slug": "simulador-saldo-zero",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,9 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.augusto25.simulador" 
     },
     "android": {
+      "package": "com.augusto25.simulador",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
