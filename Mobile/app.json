@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "S",
-    "slug": "deafultsdk-54", 
+    "name": "MenssageFlow",
+    "slug": "MenssageFlow", 
     "owner": "augusto25",
     "extra": {
       "eas": {
@@ -9,10 +9,10 @@
       }
     },
     "android": {
-      "package": "com.augusto25.p"
+      "package": "com.augusto25.menssageflow"
     },
     "ios": {
-      "bundleIdentifier": "com.augusto25.p"
+      "bundleIdentifier": "com.augusto25.menssageflow"
     }
   }
 }
