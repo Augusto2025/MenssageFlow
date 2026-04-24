@@ -12,14 +12,15 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 # --- CONFIGURAÇÕES GLOBAIS ---
-ctk.set_appearance_mode("light")
+# "system" faz o app seguir o tema (Claro/Escuro) do Windows automaticamente
+ctk.set_appearance_mode("system") 
 ctk.set_default_color_theme("blue")
 
 excel_data = None
 excel_nome = "Nenhum"
 image_path = None
 image_nome = "Nenhuma"
-tempo_carregamento = 15 
+tempo_carregamento = 25 
 tempo_intervalo = 30
 arquivo_config = "config.json"
 caminho_icone = resource_path(os.path.join("img", "MenssageFlow_icone.ico"))
@@ -80,6 +81,7 @@ def limpar_imagem():
 
 def atualizar_status():
     status = f"Excel: {excel_nome}\nImagem: {image_nome}"
+    # Cor verde para sucesso, cinza para neutro (funciona em ambos os temas)
     info_label.configure(text=status, text_color="#28A745" if excel_data is not None else "#6C757D")
 
 def mudar_tempo_carregar(v):
@@ -104,69 +106,117 @@ def mostrar_detalhes_erros():
     
     relatorio = "CONTATOS QUE FALHARAM:\n" + "="*30 + "\n"
     for erro in lista_erros:
-        relatorio += f"Nome: {erro['nome']} | Número: {erro['numero']}\n"
+        relatorio += f"Nome: {erro['nome']} | Telefone: {erro['telefone']}\n"
     
     txt.insert("0.0", relatorio)
     txt.configure(state="disabled")
 
-# --- LÓGICA DE ENVIO ---
+# --- NOVA FUNÇÃO DE LIMPEZA DE NÚMERO ---
+def limpar_numero_br(telefone):
+    # Remove tudo que não é dígito (parênteses, traços, espaços)
+    n = ''.join(filter(str.isdigit, str(telefone)))
+    
+    # Se o número começar com 0, remove o zero (ex: 011...)
+    if n.startswith('0'):
+        n = n[1:]
+        
+    # Se o número não tem o DDI (55), nós adicionamos
+    if not n.startswith('55'):
+        # Se após tirar o 0 sobrarem 10 ou 11 dígitos, é um número BR sem 55
+        if len(n) == 10 or len(n) == 11:
+            n = '55' + n
+            
+    # Validação final: Um número BR com 55 + DDD + Numero deve ter 12 ou 13 dígitos
+    if len(n) < 12 or len(n) > 13:
+        return None # Número inválido ou internacional não suportado nesta regra
+        
+    return n
+
+import unicodedata
+
+# --- FUNÇÕES DE APOIO ---
+def normalizar_texto(texto):
+    """Remove acentos, deixa em minúsculo e limpa espaços."""
+    if pd.isna(texto) or str(texto).strip() == "": return ""
+    texto = str(texto).strip().lower()
+    nfkd_form = unicodedata.normalize('NFKD', texto)
+    return "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+
+import urllib.parse
+
+# --- LÓGICA DE ENVIO "ZERO CLIQUES" ---
 def processo_envio(msg):
     global lista_erros
-    lista_erros = [] # Limpa a lista para o novo envio
+    lista_erros = [] 
     sucessos = 0
     falhas = 0
+    
+    if 'nome' not in excel_data.columns or 'telefone' not in excel_data.columns:
+        messagebox.showerror("Erro", "A tabela deve ter as colunas 'nome' e 'telefone'!")
+        return
+
     total = len(excel_data)
-    largura, altura = pyautogui.size() 
 
     for i, row in excel_data.iterrows():
-        # Captura os dados antes de tentar enviar para usar no log de erro se precisar
-        nome_atual = str(row['nome']) if str(row['nome']) != "nan" else "Cliente"
-        numero_atual = str(row['numero'])
+        nome_raw = row['nome']
+        tel_raw = row['telefone']
+        nome_normal = normalizar_texto(nome_raw)
+        tel_str = str(tel_raw).strip()
 
         try:
-            limpar_area_transferencia()
-            n_limpo = ''.join(filter(str.isdigit, numero_atual))
-            p_nome = nome_atual.strip().split()[0]
-            mensagem_final = f"Olá {p_nome}! \n{msg}" if msg.strip() else ""
+            if nome_normal == "":
+                raise Exception(f"Falta o NOME")
+            if tel_str == "" or tel_str == "nan":
+                raise Exception(f"Falta o NÚMERO")
 
-            webbrowser.open(f"https://web.whatsapp.com/send?phone={n_limpo}")
+            n_limpo = limpar_numero_br(tel_str)
+            if n_limpo is None:
+                raise Exception("Número fora do padrão BR")
+
+            # 1. PREPARO DA MENSAGEM VIA URL (O WhatsApp já escreve para você)
+            p_nome = nome_normal.split()[0].capitalize()
+            mensagem_final = f"Olá {p_nome}! \n{msg}" if msg.strip() else ""
+            # Codifica o texto para formato de URL (converte espaços e quebras de linha)
+            msg_url = urllib.parse.quote(mensagem_final)
+
+            # 2. ABRE O WHATSAPP JÁ COM O TEXTO ESCRITO
+            link = f"https://web.whatsapp.com/send?phone={n_limpo}&text={msg_url}"
+            webbrowser.open(link)
+            
+            # Espera o carregamento (importante ser generoso aqui)
             time.sleep(tempo_carregamento)
 
-            pyautogui.hotkey('alt', 'tab')
-            time.sleep(1)
-            pyautogui.click(largura/2, altura/2)
-            time.sleep(1)
-
+            # 3. ENVIO DA IMAGEM (CASO EXISTA)
             if image_path and os.path.exists(image_path):
+                # Copia a imagem para o clipboard
                 ps_command = f'Set-Clipboard -Path "{image_path}"'
                 subprocess.run(['powershell', '-Command', ps_command], shell=True)
-                time.sleep(1.5)
+                time.sleep(2)
+                
+                # Cola a imagem (O WhatsApp vai colocar a imagem por cima do texto da URL)
                 pyautogui.hotkey('ctrl', 'v')
-                time.sleep(4) 
-                if mensagem_final:
-                    pyperclip.copy(mensagem_final)
-                    time.sleep(0.5); pyautogui.hotkey('ctrl', 'v'); time.sleep(1)
+                time.sleep(4) # Tempo para processar o anexo
+                
+                # Envia o conjunto (Imagem + Texto que já estava lá)
                 pyautogui.press('enter')
-            elif mensagem_final:
-                pyperclip.copy(mensagem_final)
-                time.sleep(1); pyautogui.hotkey('ctrl', 'v'); time.sleep(1); pyautogui.press('enter')
+            else:
+                # Se for só texto, o texto já foi escrito pela URL, só dar Enter
+                pyautogui.press('enter')
 
-            time.sleep(3); pyautogui.hotkey('ctrl', 'w')
+            # 4. SUCESSO
             sucessos += 1
-        except Exception:
+            time.sleep(2) # Pequena pausa antes de fechar a aba
+            pyautogui.hotkey('ctrl', 'w') # Fecha a aba para não poluir o navegador
+            
+        except Exception as e:
             falhas += 1
-            lista_erros.append({"nome": nome_atual, "numero": numero_atual})
+            lista_erros.append({"nome": str(nome_raw), "telefone": str(e)})
         
         progress_bar.set((i + 1) / total)
         time.sleep(tempo_intervalo)
         
-    # Mensagem final detalhada
-    resultado_texto = f"Processo Finalizado!\n\n✅ Sucessos: {sucessos}\n❌ Falhas: {falhas}"
-    messagebox.showinfo("Relatório MessageFlow", resultado_texto)
-    
-    if falhas > 0:
-        if messagebox.askyesno("Ver Detalhes", "Deseja ver a lista de quem não recebeu a mensagem?"):
-            mostrar_detalhes_erros()
+    messagebox.showinfo("Finalizado", f"✅ Sucessos: {sucessos}\n❌ Falhas: {falhas}")
+
 
 def iniciar_envio():
     if excel_data is None: return messagebox.showerror("Erro", "Selecione o Excel!")
@@ -181,7 +231,8 @@ if validar_acesso():
     root.resizable(False, False)
     if os.path.exists(caminho_icone): root.iconbitmap(caminho_icone)
 
-    main_frame = ctk.CTkScrollableFrame(root, fg_color="#F0F0F0", height=630, width=450)
+    # Removido fg_color fixo para que o frame se adapte ao fundo escuro/claro automaticamente
+    main_frame = ctk.CTkScrollableFrame(root, height=630, width=450)
     main_frame.pack(fill="both", expand=True, padx=15, pady=10)
 
     ctk.CTkLabel(main_frame, text="MessageFlow", font=("Segoe UI", 20, "bold"), text_color="#007BFF").pack(pady=(0, 15))
@@ -200,7 +251,8 @@ if validar_acesso():
     info_label = ctk.CTkLabel(main_frame, text="Excel: Nenhum | Imagem: Nenhuma", font=("Segoe UI", 10), text_color="#6C757D", justify="left")
     info_label.pack(anchor="w", pady=5)
 
-    message_text = ctk.CTkTextbox(main_frame, height=100, fg_color="#FFFFFF", border_width=1, border_color="#CED4DA", text_color="black")
+    # Removido fg_color e text_color fixos para o campo de texto se adaptar ao tema
+    message_text = ctk.CTkTextbox(main_frame, height=100, border_width=1, border_color="#CED4DA")
     message_text.pack(fill="x", pady=10)
 
     lbl_carregar = ctk.CTkLabel(main_frame, text=f"Espera de carregamento: {tempo_carregamento}s", font=("Segoe UI", 10, "bold"), text_color="#007BFF")

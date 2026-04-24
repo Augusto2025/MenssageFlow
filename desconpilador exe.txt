@@ -1,0 +1,72 @@
+================================================================================
+GUIA TÉCNICO: PROCESSO DE ENGENHARIA REVERSA (EXE -> PY)
+PROJETO: MENSSAGEFLOW (PYTHON 3.13)
+================================================================================
+
+Este documento descreve as etapas exatas que foram realizadas para recuperar 
+o código-fonte de um executável do Windows que foi criado originalmente em Python.
+
+--------------------------------------------------------------------------------
+PASSO 1: EXTRAÇÃO DOS FICHEIROS DO EXECUTÁVEL
+--------------------------------------------------------------------------------
+O arquivo .exe não é um código "fechado", mas sim um pacote compactado. 
+Para abri-lo, utilizamos o PyInstxtractor.
+
+Ação: O executável foi submetido a um script de extração.
+Resultado: Foi criada uma pasta contendo todos os componentes do programa, 
+incluindo DLLs, bibliotecas e, o mais importante, o arquivo 'MenssageFlow.pyc'.
+
+--------------------------------------------------------------------------------
+PASSO 2: IDENTIFICAÇÃO DO BYTECODE (.PYC)
+--------------------------------------------------------------------------------
+Dentro da pasta extraída, o objetivo era encontrar o ficheiro que continha a 
+lógica do autor.
+
+Ficheiro encontrado: 'MenssageFlow.pyc'
+O que é: É o código Python "compilado" (Bytecode). É legível para o computador, 
+mas não para humanos.
+
+--------------------------------------------------------------------------------
+PASSO 3: DESCOMPILAÇÃO (TRADUÇÃO PARA CÓDIGO FONTE)
+--------------------------------------------------------------------------------
+Para ler o arquivo .pyc, utilizámos um descompilador chamado PyCDC (Decompyle++).
+
+Dificuldade: Como o código foi feito em Python 3.13, muitos descompiladores 
+online falharam. O PyCDC foi usado para tentar reconstruir a árvore do código.
+
+Comando utilizado: pycdc.exe MenssageFlow.pyc > codigo_recuperado.py
+
+--------------------------------------------------------------------------------
+PASSO 4: TRATAMENTO DE ERROS DE VERSÃO (PYTHON 3.13)
+--------------------------------------------------------------------------------
+O Python 3.13 introduziu novas instruções (Opcodes) que o tradutor automático 
+ainda não compreende totalmente, gerando erros como "Unsupported opcode".
+
+O que foi recuperado automaticamente:
+- Lista de bibliotecas (Tkinter, Pandas, PyWhatKit, etc.).
+- Estrutura da Janela (Botões, Cores, Posicionamento).
+- Funções simples de limpeza e caminhos de ficheiro.
+
+O que falhou:
+- A lógica interna de loops (for/while) dentro das funções principais.
+
+--------------------------------------------------------------------------------
+PASSO 5: RECONSTRUÇÃO LÓGICA MANUAL
+--------------------------------------------------------------------------------
+Com base no que sobrou, o código foi completado manualmente:
+1. Reconstruímos a função 'enviar_mensagens' sabendo que ela precisava ler o 
+   Excel (Pandas) e disparar o WhatsApp (PyWhatKit).
+2. Restaurámos a lógica de formatação de números de telefone usando expressões 
+   regulares (Regex).
+3. Re-implementámos a trava de segurança HWID (ID do Computador) analisando os 
+   módulos 'hashlib' e 'uuid' que estavam presentes no cabeçalho.
+
+--------------------------------------------------------------------------------
+CONCLUSÃO
+--------------------------------------------------------------------------------
+O código foi restaurado para um estado funcional. 
+Lição aprendida: Comentários (#) são eliminados permanentemente durante a 
+criação do .exe e não podem ser recuperados por nenhum método.
+
+Sempre guarde o arquivo .py original num local seguro (Cloud ou Git).
+================================================================================
